@@ -42,6 +42,8 @@ const BillingManagement: React.FC = () => {
   const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view'>('add');
   const [activeTab, setActiveTab] = useState('structures');
   const [filterInstitution, setFilterInstitution] = useState('');
+  const [selectedInstitution, setSelectedInstitution] = useState('');
+  const [applicableFor, setApplicableFor] = useState('institution');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -60,12 +62,21 @@ const BillingManagement: React.FC = () => {
   const openModal = (mode: 'add' | 'edit' | 'view', structure?: any) => {
     setModalMode(mode);
     setSelectedStructure(structure || null);
+    if (structure) {
+      setSelectedInstitution(structure.institutionId || '');
+      setApplicableFor(structure.applicableFor || 'institution');
+    } else {
+      setSelectedInstitution('');
+      setApplicableFor('institution');
+    }
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setSelectedStructure(null);
+    setSelectedInstitution('');
+    setApplicableFor('institution');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -130,6 +141,29 @@ const BillingManagement: React.FC = () => {
     return status === 'active' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />;
   };
 
+  const handleInstitutionChange = (institutionId: string) => {
+    setSelectedInstitution(institutionId);
+  };
+
+  const handleApplicableForChange = (value: string) => {
+    setApplicableFor(value);
+  };
+
+  const getAvailableClasses = () => {
+    if (!selectedInstitution) return [];
+    return getClassesByInstitution(selectedInstitution);
+  };
+
+  const getTargetLabel = () => {
+    switch (applicableFor) {
+      case 'class':
+        return 'Pilih Kelas';
+      case 'student':
+        return 'Pilih Siswa';
+      default:
+        return 'Target';
+    }
+  };
   const FeeStructureModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -175,6 +209,16 @@ const BillingManagement: React.FC = () => {
                   <p className="text-sm text-gray-600">Berlaku Untuk</p>
                   <p className="font-medium capitalize">{selectedStructure.applicableFor}</p>
                 </div>
+                {selectedStructure.targetId && (
+                  <div>
+                    <p className="text-sm text-gray-600">Target</p>
+                    <p className="font-medium">
+                      {selectedStructure.applicableFor === 'class' 
+                        ? classes.find(c => c.id === selectedStructure.targetId)?.name
+                        : selectedStructure.targetId}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-sm text-gray-600">Status</p>
                   <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(selectedStructure.status)}`}>
@@ -258,6 +302,7 @@ const BillingManagement: React.FC = () => {
                 <select
                   name="institutionId"
                   defaultValue={selectedStructure?.institutionId || ''}
+                  onChange={(e) => handleInstitutionChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
@@ -297,6 +342,7 @@ const BillingManagement: React.FC = () => {
                 <select
                   name="applicableFor"
                   defaultValue={selectedStructure?.applicableFor || 'institution'}
+                  onChange={(e) => handleApplicableForChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
@@ -307,8 +353,51 @@ const BillingManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {getTargetLabel()}
                   Target (Opsional)
                 </label>
+                {applicableFor === 'class' ? (
+                  <select
+                    name="targetId"
+                    defaultValue={selectedStructure?.targetId || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={!selectedInstitution}
+                  >
+                    <option value="">
+                      {selectedInstitution ? 'Pilih Kelas' : 'Pilih Institusi Terlebih Dahulu'}
+                    </option>
+                    {getAvailableClasses().map(cls => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : applicableFor === 'student' ? (
+                  <select
+                    name="targetId"
+                    defaultValue={selectedStructure?.targetId || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={!selectedInstitution}
+                  >
+                    <option value="">
+                      {selectedInstitution ? 'Pilih Siswa' : 'Pilih Institusi Terlebih Dahulu'}
+                    </option>
+                    {students.filter(s => s.institution === institutions.find(i => i.id === selectedInstitution)?.name).map(student => (
+                      <option key={student.id} value={student.id}>
+                        {student.name} - {student.nis}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    name="targetId"
+                    defaultValue={selectedStructure?.targetId || ''}
+                    placeholder="Tidak diperlukan untuk seluruh institusi"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+                    disabled
+                  />
+                )}
                 <input
                   type="text"
                   name="targetId"
@@ -455,6 +544,9 @@ const BillingManagement: React.FC = () => {
         {filteredStructures.map((structure) => {
           const institution = institutions.find(i => i.id === structure.institutionId);
           const academicYear = academicYears.find(y => y.id === structure.academicYearId);
+          const targetName = structure.targetId && structure.applicableFor === 'class' 
+            ? classes.find(c => c.id === structure.targetId)?.name 
+            : structure.targetId;
           
           return (
             <div key={structure.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -486,6 +578,12 @@ const BillingManagement: React.FC = () => {
                     <span className="text-sm text-gray-600">Berlaku Untuk:</span>
                     <span className="text-sm font-medium capitalize">{structure.applicableFor}</span>
                   </div>
+                  {structure.targetId && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Target:</span>
+                      <span className="text-sm font-medium">{targetName}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Jumlah Item:</span>
                     <span className="text-sm font-medium">{structure.fees.length} item</span>
