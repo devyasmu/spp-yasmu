@@ -19,18 +19,22 @@ const PaymentManagement: React.FC = () => {
   const { students, payments, addPayment, getPaymentsByStudent } = useData();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'tunai' | 'transfer' | 'kartu'>('tunai');
   const [feeType, setFeeType] = useState('');
   const [notes, setNotes] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.nis.includes(searchTerm);
-    return matchesSearch && student.outstandingAmount > 0;
-  });
+  // Remove the automatic filtering to improve performance
+  // const filteredStudents = students.filter(student => {
+  //   const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //                        student.nis.includes(searchTerm);
+  //   return matchesSearch && student.outstandingAmount > 0;
+  // });
 
   const recentPayments = payments.slice(-10).reverse();
 
@@ -41,10 +45,45 @@ const PaymentManagement: React.FC = () => {
     }).format(amount);
   };
 
+  const handleSearch = () => {
+    if (searchTerm.trim() === '') {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    
+    // Simulate API call delay for better UX
+    setTimeout(() => {
+      const results = students.filter(student => {
+        const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             student.nis.includes(searchTerm.toLowerCase()) ||
+                             student.class.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesSearch;
+      }).slice(0, 50); // Limit to 50 results for performance
+      
+      setSearchResults(results);
+      setIsSearching(false);
+    }, 300);
+  };
+
+  const openSearchModal = () => {
+    setShowSearchModal(true);
+    setSearchTerm('');
+    setSearchResults([]);
+  };
+
+  const closeSearchModal = () => {
+    setShowSearchModal(false);
+    setSearchTerm('');
+    setSearchResults([]);
+  };
+
   const openPaymentModal = (student: any) => {
     setSelectedStudent(student);
     setPaymentAmount(student.outstandingAmount.toString());
     setShowPaymentModal(true);
+    setShowSearchModal(false); // Close search modal when opening payment modal
   };
 
   const closePaymentModal = () => {
@@ -113,6 +152,123 @@ const PaymentManagement: React.FC = () => {
         return <Clock className="w-4 h-4" />;
     }
   };
+
+  const SearchModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-hidden">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Cari Siswa untuk Pembayaran</h2>
+          <button
+            onClick={closeSearchModal}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Cari berdasarkan nama, NIS, atau kelas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              autoFocus
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            disabled={isSearching}
+            className="mt-3 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
+          >
+            {isSearching ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              <>
+                <Search className="w-4 h-4 mr-2" />
+                Cari Siswa
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto">
+          {searchResults.length > 0 ? (
+            <div className="space-y-2">
+              {searchResults.map((student) => (
+                <div key={student.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center">
+                    <div className="bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center mr-3">
+                      <User className="w-5 h-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">{student.name}</p>
+                      <p className="text-sm text-gray-600">{student.class} - NIS: {student.nis}</p>
+                      <p className="text-xs text-gray-500">
+                        Status: {student.outstandingAmount > 0 ? 
+                          <span className="text-red-600">Ada Tunggakan</span> : 
+                          <span className="text-green-600">Lunas</span>
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">
+                        {student.outstandingAmount > 0 ? 'Tunggakan' : 'Status'}
+                      </p>
+                      <p className={`font-semibold ${student.outstandingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {student.outstandingAmount > 0 ? 
+                          formatCurrency(student.outstandingAmount) : 
+                          'Lunas'
+                        }
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => openPaymentModal(student)}
+                      disabled={student.outstandingAmount <= 0}
+                      className={`px-4 py-2 rounded-lg flex items-center ${
+                        student.outstandingAmount > 0
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      {student.outstandingAmount > 0 ? 'Bayar' : 'Lunas'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : searchTerm && !isSearching ? (
+            <div className="text-center py-8 text-gray-500">
+              <User className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>Tidak ada siswa yang ditemukan</p>
+              <p className="text-sm">Coba gunakan kata kunci yang berbeda</p>
+            </div>
+          ) : !searchTerm ? (
+            <div className="text-center py-8 text-gray-500">
+              <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>Masukkan nama, NIS, atau kelas siswa</p>
+              <p className="text-sm">untuk memulai pencarian</p>
+            </div>
+          ) : null}
+        </div>
+
+        {searchResults.length >= 50 && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <AlertCircle className="w-4 h-4 inline mr-1" />
+              Menampilkan 50 hasil teratas. Gunakan kata kunci yang lebih spesifik untuk hasil yang lebih akurat.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const PaymentModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -308,55 +464,52 @@ const PaymentManagement: React.FC = () => {
       </div>
 
       {/* Payment Processing */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-gray-800">Proses Pembayaran</h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Cari siswa..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+          <button
+            onClick={openSearchModal}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
+          >
+            <Search className="w-4 h-4 mr-2" />
+            Cari Siswa
+          </button>
+        </div>
+
+        <div className="py-12">
+          <div className="max-w-md mx-auto">
+            <div className="bg-blue-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
+              <Search className="w-10 h-10 text-blue-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">Cari Siswa untuk Pembayaran</h3>
+            <p className="text-gray-600 mb-6">
+              Klik tombol "Cari Siswa" untuk mencari dan memproses pembayaran siswa
+            </p>
+            <button
+              onClick={openSearchModal}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center mx-auto"
+            >
+              <Search className="w-5 h-5 mr-2" />
+              Mulai Pencarian
+            </button>
           </div>
         </div>
 
-        <div className="space-y-2">
-          {filteredStudents.map((student) => (
-            <div key={student.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-              <div className="flex items-center">
-                <div className="bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center mr-3">
-                  <User className="w-5 h-5 text-gray-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-800">{student.name}</p>
-                  <p className="text-sm text-gray-600">{student.class} - NIS: {student.nis}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Tunggakan</p>
-                  <p className="font-semibold text-red-600">
-                    {formatCurrency(student.outstandingAmount)}
-                  </p>
-                </div>
-                <button
-                  onClick={() => openPaymentModal(student)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Bayar
-                </button>
-              </div>
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+            <div className="flex items-center justify-center">
+              <User className="w-4 h-4 mr-2" />
+              <span>Cari berdasarkan nama siswa</span>
             </div>
-          ))}
-          {filteredStudents.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              {searchTerm ? 'Tidak ada siswa yang ditemukan' : 'Semua siswa sudah melunasi pembayaran'}
+            <div className="flex items-center justify-center">
+              <FileText className="w-4 h-4 mr-2" />
+              <span>Cari berdasarkan NIS</span>
             </div>
-          )}
+            <div className="flex items-center justify-center">
+              <Users className="w-4 h-4 mr-2" />
+              <span>Cari berdasarkan kelas</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -436,6 +589,7 @@ const PaymentManagement: React.FC = () => {
         </div>
       </div>
 
+      {showSearchModal && <SearchModal />}
       {showPaymentModal && <PaymentModal />}
     </div>
   );
