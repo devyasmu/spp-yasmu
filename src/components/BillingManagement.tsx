@@ -25,6 +25,7 @@ const BillingManagement: React.FC = () => {
     institutions,
     academicYears,
     classes,
+    getClassesByInstitution,
     currentAcademicYear,
     addFeeStructure,
     updateFeeStructure,
