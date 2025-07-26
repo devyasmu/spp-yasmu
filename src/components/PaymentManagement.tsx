@@ -12,7 +12,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Printer
+  Printer,
+  FileText,
+  Users,
+  AlertCircle
 } from 'lucide-react';
 
 const PaymentManagement: React.FC = () => {
