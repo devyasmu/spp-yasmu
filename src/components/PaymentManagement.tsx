@@ -84,7 +84,7 @@ const PaymentManagement: React.FC = () => {
 
   const openPaymentModal = (student: any) => {
     setSelectedStudent(student);
-    setPaymentAmount(student.outstandingAmount.toString());
+    setPaymentAmount('');
     setShowPaymentModal(true);
     setShowSearchModal(false); // Close search modal when opening payment modal
   };
@@ -339,11 +339,16 @@ const PaymentManagement: React.FC = () => {
               type="number"
               value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
+              onFocus={(e) => e.target.select()}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               min="1"
               max={selectedStudent?.outstandingAmount || 0}
+              placeholder="Masukkan jumlah pembayaran"
               required
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Maksimal: {selectedStudent ? formatCurrency(selectedStudent.outstandingAmount) : 'Rp 0'}
+            </p>
           </div>
 
           <div>
